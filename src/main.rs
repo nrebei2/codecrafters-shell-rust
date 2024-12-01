@@ -19,7 +19,7 @@ impl FromStr for Command {
             Some(comm) => match &comm.to_ascii_lowercase()[..] {
                 "echo" => Ok(Self::Echo),
                 "cd" => Ok(Self::Cd),
-                _ => Err(format!("invalid_command: {} not found", comm)),
+                _ => Err(format!("{comm}: command not found")),
             },
         }
     }
