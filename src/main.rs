@@ -1,6 +1,12 @@
 #[allow(unused_imports)]
 use std::io::{self, Write};
-use std::{env, path::PathBuf, str::FromStr};
+use std::{
+    env,
+    io::Stdout,
+    path::PathBuf,
+    process::Stdio,
+    str::{FromStr, SplitWhitespace},
+};
 
 enum Command {
     Echo(String),
@@ -8,6 +14,18 @@ enum Command {
     Cd,
     Empty,
     Exit,
+    External,
+}
+
+fn collect(blocks: SplitWhitespace<'_>) -> String {
+    let mut s = blocks.fold(String::new(), |mut a, b| {
+        a.reserve(b.len() + 1);
+        a.push_str(b);
+        a.push_str(" ");
+        a
+    });
+    s.pop();
+    s
 }
 
 impl FromStr for Command {
@@ -19,17 +37,7 @@ impl FromStr for Command {
         match blocks.next() {
             None => Ok(Self::Empty),
             Some(comm) => match &comm.to_ascii_lowercase()[..] {
-                "echo" => {
-                    let mut s = blocks.fold(String::new(), |mut a, b| {
-                        a.reserve(b.len() + 1);
-                        a.push_str(b);
-                        a.push_str(" ");
-                        a
-                    });
-                    s.pop();
-
-                    Ok(Self::Echo(s))
-                }
+                "echo" => Ok(Self::Echo(collect(blocks))),
                 "cd" => Ok(Self::Cd),
                 "exit" => Ok(Self::Exit),
                 "type" => Ok(Self::Type(
@@ -38,7 +46,10 @@ impl FromStr for Command {
                         .ok_or("type: expected command")?
                         .to_ascii_lowercase(),
                 )),
-                _ => Err(format!("{comm}: command not found")),
+                _ => match find_in_path(comm) {
+                    Some(_) => Ok(Self::External),
+                    None => Err(format!("{comm}: command not found")),
+                },
             },
         }
     }
@@ -67,23 +78,30 @@ fn main() {
         print("$ ");
         stdin.read_line(&mut input).unwrap();
 
-        let response = match Command::from_str(&input) {
+        match Command::from_str(&input) {
             Ok(comm) => match comm {
                 Command::Exit => break,
-                Command::Echo(echo) => echo,
+                Command::Echo(echo) => println!("{echo}"),
                 Command::Type(comm) => match &comm[..] {
-                    "echo" | "cd" | "type" | "exit" => format!("{comm} is a shell builtin"),
+                    "echo" | "cd" | "type" | "exit" => println!("{comm} is a shell builtin"),
                     _ => match find_in_path(&comm) {
-                        Some(full_path) => format!("{comm} is {}", full_path.display()),
-                        None => format!("{comm}: not found"),
+                        Some(full_path) => println!("{comm} is {}", full_path.display()),
+                        None => println!("{comm}: not found"),
                     },
                 },
+                Command::External => {
+                    std::process::Command::new("sh")
+                        .arg("-c")
+                        .arg(&input)
+                        .stdout(Stdio::inherit())
+                        .output()
+                        .unwrap();
+                }
                 _ => todo!(),
             },
-            Err(e) => e,
+            Err(e) => println!("{e}"),
         };
 
-        println!("{response}");
         input.clear();
     }
 }
