@@ -6,6 +6,7 @@ enum Command {
     Echo,
     Cd,
     Empty,
+    Exit
 }
 
 impl FromStr for Command {
@@ -19,6 +20,7 @@ impl FromStr for Command {
             Some(comm) => match &comm.to_ascii_lowercase()[..] {
                 "echo" => Ok(Self::Echo),
                 "cd" => Ok(Self::Cd),
+                "exit" => Ok(Self::Exit),
                 _ => Err(format!("{comm}: command not found")),
             },
         }
@@ -40,7 +42,10 @@ fn main() {
 
         match Command::from_str(&input) {
             Ok(comm) => {
-                todo!()
+                match comm {
+                    Command::Exit => break,
+                    _ => todo!()
+                }
             }
             Err(e) => {
                 println!("{e}");
