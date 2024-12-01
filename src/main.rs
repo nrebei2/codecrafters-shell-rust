@@ -1,6 +1,6 @@
 #[allow(unused_imports)]
 use std::io::{self, Write};
-use std::str::FromStr;
+use std::{env, path::PathBuf, str::FromStr};
 
 enum Command {
     Echo(String),
@@ -49,6 +49,16 @@ fn print(s: &str) {
     io::stdout().flush().unwrap();
 }
 
+fn find_in_path(comm: &str) -> Option<PathBuf> {
+    for path in env::split_paths(&env::var_os("PATH").unwrap()) {
+        let joined = path.join(comm);
+        if joined.is_file() {
+            return Some(joined);
+        }
+    }
+    None
+}
+
 fn main() {
     let stdin = io::stdin();
     let mut input = String::new();
@@ -57,21 +67,23 @@ fn main() {
         print("$ ");
         stdin.read_line(&mut input).unwrap();
 
-        match Command::from_str(&input) {
+        let response = match Command::from_str(&input) {
             Ok(comm) => match comm {
                 Command::Exit => break,
-                Command::Echo(echo) => println!("{echo}"),
+                Command::Echo(echo) => echo,
                 Command::Type(comm) => match &comm[..] {
-                    "echo" | "cd" | "type" | "exit" => println!("{comm} is a shell builtin"),
-                    oth => println!("{oth}: not found"),
+                    "echo" | "cd" | "type" | "exit" => format!("{comm} is a shell builtin"),
+                    _ => match find_in_path(&comm) {
+                        Some(full_path) => format!("{comm} is {}", full_path.display()),
+                        None => format!("{comm}: not found"),
+                    },
                 },
                 _ => todo!(),
             },
-            Err(e) => {
-                println!("{e}");
-            }
-        }
+            Err(e) => e,
+        };
 
+        println!("{response}");
         input.clear();
     }
 }
