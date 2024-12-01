@@ -3,10 +3,10 @@ use std::io::{self, Write};
 use std::str::FromStr;
 
 enum Command {
-    Echo,
+    Echo(String),
     Cd,
     Empty,
-    Exit
+    Exit,
 }
 
 impl FromStr for Command {
@@ -18,7 +18,17 @@ impl FromStr for Command {
         match blocks.next() {
             None => Ok(Self::Empty),
             Some(comm) => match &comm.to_ascii_lowercase()[..] {
-                "echo" => Ok(Self::Echo),
+                "echo" => {
+                    let mut s = blocks.fold(String::new(), |mut a, b| {
+                        a.reserve(b.len() + 1);
+                        a.push_str(b);
+                        a.push_str(" ");
+                        a
+                    });
+                    s.pop();
+
+                    Ok(Self::Echo(s))
+                },
                 "cd" => Ok(Self::Cd),
                 "exit" => Ok(Self::Exit),
                 _ => Err(format!("{comm}: command not found")),
@@ -41,12 +51,11 @@ fn main() {
         stdin.read_line(&mut input).unwrap();
 
         match Command::from_str(&input) {
-            Ok(comm) => {
-                match comm {
-                    Command::Exit => break,
-                    _ => todo!()
-                }
-            }
+            Ok(comm) => match comm {
+                Command::Exit => break,
+                Command::Echo(echo) => println!("{echo}"),
+                _ => todo!(),
+            },
             Err(e) => {
                 println!("{e}");
             }
