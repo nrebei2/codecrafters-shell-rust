@@ -4,6 +4,7 @@ use std::str::FromStr;
 
 enum Command {
     Echo(String),
+    Type(String),
     Cd,
     Empty,
     Exit,
@@ -28,9 +29,15 @@ impl FromStr for Command {
                     s.pop();
 
                     Ok(Self::Echo(s))
-                },
+                }
                 "cd" => Ok(Self::Cd),
                 "exit" => Ok(Self::Exit),
+                "type" => Ok(Self::Type(
+                    blocks
+                        .next()
+                        .ok_or("type: expected command")?
+                        .to_ascii_lowercase(),
+                )),
                 _ => Err(format!("{comm}: command not found")),
             },
         }
@@ -54,6 +61,10 @@ fn main() {
             Ok(comm) => match comm {
                 Command::Exit => break,
                 Command::Echo(echo) => println!("{echo}"),
+                Command::Type(comm) => match &comm[..] {
+                    "echo" | "cd" | "type" | "exit" => println!("{comm} is a shell builtin"),
+                    oth => println!("{oth}: not found"),
+                },
                 _ => todo!(),
             },
             Err(e) => {
