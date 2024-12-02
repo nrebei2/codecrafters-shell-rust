@@ -48,8 +48,8 @@ impl<'a> SplitArgs<'a> {
             match c {
                 '\"' => break,
                 '\\' => match self.chars.next().unwrap() {
-                    '\\' | '$' | '"' => {
-                        str.push(self.chars.next().unwrap());
+                    n @ ('\\' | '$' | '"') => {
+                        str.push(n);
                     }
                     oth => {
                         str.push('\\');
