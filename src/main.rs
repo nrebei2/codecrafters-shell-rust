@@ -2,7 +2,6 @@
 use std::io::{self, Write};
 use std::{
     env,
-    io::Stdout,
     path::PathBuf,
     process::Stdio,
     str::{FromStr, SplitWhitespace},
@@ -11,10 +10,11 @@ use std::{
 enum Command {
     Echo(String),
     Type(String),
-    Cd,
+    Cd(PathBuf),
     Empty,
     Exit,
     External,
+    Pwd,
 }
 
 fn collect(blocks: SplitWhitespace<'_>) -> String {
@@ -32,13 +32,26 @@ impl FromStr for Command {
     type Err = String;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
+        // TODO: will have to make a custom split_args iterator
+        // that accounts for ', ", \
         let mut blocks = s.split_whitespace();
 
         match blocks.next() {
             None => Ok(Self::Empty),
             Some(comm) => match &comm.to_ascii_lowercase()[..] {
                 "echo" => Ok(Self::Echo(collect(blocks))),
-                "cd" => Ok(Self::Cd),
+                "cd" => {
+                    let mut path_str = blocks.next().ok_or("type: expected path")?.to_string();
+
+                    if path_str.starts_with('~') {
+                        #[allow(deprecated)]
+                        let home = std::env::home_dir().unwrap();
+                        let home_expanded = path_str.replacen('~', &home.display().to_string(), 1);
+                        path_str = home_expanded;
+                    }
+
+                    Ok(Self::Cd(path_str.into()))
+                }
                 "exit" => Ok(Self::Exit),
                 "type" => Ok(Self::Type(
                     blocks
@@ -46,6 +59,7 @@ impl FromStr for Command {
                         .ok_or("type: expected command")?
                         .to_ascii_lowercase(),
                 )),
+                "pwd" => Ok(Self::Pwd),
                 _ => match find_in_path(comm) {
                     Some(_) => Ok(Self::External),
                     None => Err(format!("{comm}: command not found")),
@@ -90,6 +104,7 @@ fn main() {
                     },
                 },
                 Command::External => {
+                    // TODO: just spawn the command directly, i have the full_path and args
                     std::process::Command::new("sh")
                         .arg("-c")
                         .arg(&input)
@@ -97,7 +112,18 @@ fn main() {
                         .output()
                         .unwrap();
                 }
-                _ => todo!(),
+                Command::Pwd => {
+                    match env::current_dir() {
+                        Ok(path) => println!("{}", path.display()),
+                        _ => println!("Current directory cannot be found!"),
+                    };
+                }
+                Command::Cd(path) => {
+                    if env::set_current_dir(&path).is_err() {
+                        println!("cd: {}: No such file or directory", path.display());
+                    }
+                }
+                Command::Empty => {}
             },
             Err(e) => println!("{e}"),
         };
