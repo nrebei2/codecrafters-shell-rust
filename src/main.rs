@@ -97,7 +97,7 @@ fn main() {
                 Command::Exit => break,
                 Command::Echo(echo) => println!("{echo}"),
                 Command::Type(comm) => match &comm[..] {
-                    "echo" | "cd" | "type" | "exit" => println!("{comm} is a shell builtin"),
+                    "echo" | "cd" | "type" | "exit" | "pwd" => println!("{comm} is a shell builtin"),
                     _ => match find_in_path(&comm) {
                         Some(full_path) => println!("{comm} is {}", full_path.display()),
                         None => println!("{comm}: not found"),
