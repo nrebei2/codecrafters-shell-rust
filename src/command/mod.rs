@@ -189,7 +189,11 @@ impl ExternalCommand {
                 child.wait().expect("command wasn't running");
             }
             Err(_) => {
-                let _ = writeln!(stderr(), "{}: command not found", self.process.get_program().to_str().unwrap());
+                let _ = writeln!(
+                    stderr(),
+                    "{}: command not found",
+                    self.process.get_program().to_str().unwrap()
+                );
             }
         };
     }

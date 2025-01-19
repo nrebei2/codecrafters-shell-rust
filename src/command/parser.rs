@@ -1,5 +1,7 @@
 use std::{
-    iter::Peekable, num::ParseIntError, str::{Chars, FromStr}
+    iter::Peekable,
+    num::ParseIntError,
+    str::{Chars, FromStr},
 };
 
 #[derive(Debug)]
@@ -95,7 +97,9 @@ impl<'a> CommandParser<'a> {
 
     fn parse_string(&mut self) {
         if self.chars.peek() == None {
-            panic!("Expected string, found end of input")
+            if self.buf.is_empty() {
+                panic!("Expected string, found end of input")
+            }
         }
 
         while let Some(c) = self.chars.next() {
@@ -160,7 +164,7 @@ impl<'a> CommandParser<'a> {
     }
 
     pub fn parse(mut self) -> Command {
-        let mut comm = Command::default();  
+        let mut comm = Command::default();
 
         if self.advance() {
             return comm; // empty string
@@ -196,7 +200,6 @@ impl<'a> CommandParser<'a> {
         self.chars.peek().is_none()
     }
 }
-
 
 #[test]
 fn test() {
