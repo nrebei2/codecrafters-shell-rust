@@ -49,7 +49,10 @@ impl CommandsTrie {
                             new_string.extend(postfix);
                             String::from_utf8(new_string).unwrap()
                         });
-                        return CompletionResponse::Multiple(completions.collect());
+                        let mut commands: Vec<_> = completions.collect();
+                        commands.sort();
+                        return CompletionResponse::Multiple(commands);
+
                     }
                 }
             }
