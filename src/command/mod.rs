@@ -11,6 +11,7 @@ use std::process::Command as ProcessCommand;
 
 mod parser;
 use parser::{Command as PCommand, CommandParser, Fd, RedirectTo, RedirectType};
+use pipe::pipe;
 
 enum InternalCommandName {
     Echo,
@@ -40,9 +41,9 @@ impl FromStr for InternalCommandName {
 struct InternalCommand {
     name: InternalCommandName,
     args: Vec<String>,
-    input: Box<dyn Read>,
-    output: Box<dyn Write>,
-    error: Box<dyn Write>,
+    input: Box<dyn Read + Send>,
+    output: Box<dyn Write + Send>,
+    error: Box<dyn Write + Send>,
 }
 
 fn new_file(r_type: RedirectType, file_name: String) -> File {
@@ -71,7 +72,7 @@ impl InternalCommand {
             Err(_) => return Err(comm),
         };
 
-        let (output, error): (Box<dyn Write>, Box<dyn Write>) = match comm.redirect {
+        let (output, error): (Box<dyn Write + Send>, Box<dyn Write + Send>) = match comm.redirect {
             None => (Box::new(stdout()), Box::new(stderr())),
             Some(r) => {
                 if let RedirectTo::File(file_name) = r.to {
@@ -90,7 +91,7 @@ impl InternalCommand {
         Ok(InternalCommand {
             name,
             args: comm.args,
-            input: Box::new(stdin()), // piping not supported, i would have to start worrying about spsc channels to connect internal commands
+            input: Box::new(stdin()),
             output,
             error,
         })
@@ -199,11 +200,63 @@ impl ExternalCommand {
     }
 }
 
-pub fn run_from_input(input: &str) {
-    let p_comm = CommandParser::new(input).parse();
+enum Command {
+    Internal(InternalCommand),
+    External(ExternalCommand),
+}
 
-    match InternalCommand::from_parsed_command(p_comm) {
-        Ok(internal_comm) => internal_comm.run(),
-        Err(p_comm) => ExternalCommand::from_parsed_command(p_comm).run(),
+pub fn run_from_input(input: &str) {
+    let parsed_commands = CommandParser::new(input).parse();
+    if parsed_commands.is_empty() {
+        return;
     }
+
+    let mut compiled_commands: Vec<_> = parsed_commands
+        .into_iter()
+        .map(|p_c| match InternalCommand::from_parsed_command(p_c) {
+            Ok(internal_comm) => Command::Internal(internal_comm),
+            Err(p_comm) => Command::External(ExternalCommand::from_parsed_command(p_comm)),
+        })
+        .collect();
+
+    // pipe each pair of adjacent commands together
+    for i in 0..compiled_commands.len() - 1 {
+        match &mut compiled_commands[i..i + 2] {
+            [Command::External(e_1), Command::External(e_2)] => {
+                let (reader, writer) = os_pipe::pipe().unwrap();
+
+                e_1.process.stdout(writer);
+                e_2.process.stdin(reader);
+            }
+            [Command::External(ec), Command::Internal(ic)] => {
+                let (reader, writer) = os_pipe::pipe().unwrap();
+
+                ec.process.stdout(writer);
+                ic.input = Box::new(reader);
+            }
+            [Command::Internal(ic), Command::External(ec)] => {
+                let (reader, writer) = os_pipe::pipe().unwrap();
+
+                ic.output = Box::new(writer);
+                ec.process.stdin(reader);
+            }
+            [Command::Internal(i_1), Command::Internal(i_2)] => {
+                let (reader, writer) = pipe::pipe();
+
+                i_1.output = Box::new(writer);
+                i_2.input = Box::new(reader);
+            }
+            _ => unreachable!(),
+        }
+    }
+
+    // run commands on separate threads
+    std::thread::scope(|s| {
+        for comm in compiled_commands {
+            s.spawn(|| match comm {
+                Command::External(e) => e.run(),
+                Command::Internal(i) => i.run(),
+            });
+        }
+    });
 }

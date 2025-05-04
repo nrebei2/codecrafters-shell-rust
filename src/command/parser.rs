@@ -111,6 +111,9 @@ impl<'a> CommandParser<'a> {
                 '>' => {
                     panic!("Expected a string, but found a redirection")
                 }
+                '|' => {
+                    panic!("Expected a string, but found a pipe")
+                }
                 '\\' => self.buf.push(self.chars.next().unwrap()),
                 '\'' => self.parse_single_quotes(),
                 '"' => self.parse_double_quotes(),
@@ -163,13 +166,12 @@ impl<'a> CommandParser<'a> {
         }
     }
 
-    pub fn parse(mut self) -> Command {
-        let mut comm = Command::default();
-
+    pub fn parse_command(&mut self) -> Option<Command> {
         if self.advance() {
-            return comm; // empty string
+            return None; // empty string
         }
 
+        let mut comm = Command::default();
         comm.name = {
             self.parse_string();
             self.buf.drain(..).collect()
@@ -177,6 +179,10 @@ impl<'a> CommandParser<'a> {
 
         loop {
             if self.advance() {
+                break;
+            }
+
+            if self.chars.peek() == Some(&'|') {
                 break;
             }
 
@@ -190,7 +196,30 @@ impl<'a> CommandParser<'a> {
             }
         }
 
-        comm
+        Some(comm)
+    }
+
+    /// returns a pipeline of commands, i.e. [c_1, c_2, ..., c_n] models 'c_1 | c_2 | ... | c_n'
+    pub fn parse(mut self) -> Vec<Command> {
+        let command = match self.parse_command() {
+            None => return vec![],
+            Some(c) => c,
+        };
+        let mut pipeline = vec![command];
+
+        loop {
+            match self.chars.next() {
+                Some('|') => {
+                    pipeline.push(
+                        self.parse_command()
+                            .expect("Expected a command to pipeline, but found end of input"),
+                    );
+                }
+                None => break,
+                _ => unreachable!(),
+            }
+        }
+        pipeline
     }
 
     // true if exhausted iterator
