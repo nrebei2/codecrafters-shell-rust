@@ -1,0 +1,242 @@
+   Compiling codecrafters-shell v0.1.0 (/Users/noahr/dev/rust/codecrafters-shell-rust)
+warning: unused imports: `cmp::max` and `fmt::Display`
+ --> src/history.rs:1:11
+  |
+1 | use std::{cmp::max, collections::VecDeque, fmt::Display, io::Write, ops::Deref};
+  |           ^^^^^^^^                         ^^^^^^^^^^^^
+  |
+  = note: `#[warn(unused_imports)]` on by default
+
+warning: unused import: `cmp::max`
+ --> src/input_state.rs:2:5
+  |
+2 |     cmp::max,
+  |     ^^^^^^^^
+
+warning: field `0` is never read
+  --> src/command/parser.rs:12:11
+   |
+12 |     Other(i32),
+   |     ----- ^^^
+   |     |
+   |     field in this variant
+   |
+   = note: `Fd` has a derived impl for the trait `Debug`, but this is intentionally ignored during dead code analysis
+   = note: `#[warn(dead_code)]` on by default
+help: consider changing the field to be of unit type to suppress this warning while preserving the field numbering, or remove the field
+   |
+12 |     Other(()),
+   |           ~~
+
+warning: variant `Stdin` is never constructed
+ --> src/command/parser.rs:9:5
+  |
+8 | pub enum Fd {
+  |          -- variant in this enum
+9 |     Stdin,
+  |     ^^^^^
+  |
+  = note: `Fd` has a derived impl for the trait `Debug`, but this is intentionally ignored during dead code analysis
+
+warning: field `0` is never read
+  --> src/command/parser.rs:34:8
+   |
+34 |     Fd(Fd),
+   |     -- ^^
+   |     |
+   |     field in this variant
+   |
+   = note: `RedirectTo` has a derived impl for the trait `Debug`, but this is intentionally ignored during dead code analysis
+help: consider changing the field to be of unit type to suppress this warning while preserving the field numbering, or remove the field
+   |
+34 |     Fd(()),
+   |        ~~
+
+warning: `codecrafters-shell` (bin "codecrafters-shell") generated 5 warnings (run `cargo fix --bin "codecrafters-shell"` to apply 2 suggestions)
+    Finished `release` profile [optimized] target(s) in 0.70s
+
+input: , cursor: 0
+
+input: e, cursor: 1
+
+input: e, cursor: 1
+
+input: ec, cursor: 2
+
+input: ec, cursor: 2
+
+input: ech, cursor: 3
+
+input: ech, cursor: 3
+
+input: echo, cursor: 4
+
+input: echo, cursor: 4
+
+input: echo1, cursor: 5
+
+input: echo1, cursor: 5
+
+input: echo11, cursor: 6
+echo1: command not found
+
+input: , cursor: 0
+
+input: e, cursor: 1
+
+input: e, cursor: 1
+
+input: ec, cursor: 2
+
+input: ec, cursor: 2
+
+input: ech, cursor: 3
+
+input: ech, cursor: 3
+
+input: echo, cursor: 4
+
+input: echo, cursor: 4
+
+input: echo , cursor: 5
+
+input: echo , cursor: 5
+
+input: echo 2, cursor: 6
+
+input: , cursor: 0
+
+input: e, cursor: 1
+
+input: e, cursor: 1
+
+input: ec, cursor: 2
+
+input: ec, cursor: 2
+
+input: ech, cursor: 3
+
+input: ech, cursor: 3
+
+input: echo, cursor: 4
+
+input: echo, cursor: 4
+
+input: echo , cursor: 5
+
+input: echo , cursor: 5
+
+input: echo 1, cursor: 6
+
+input: , cursor: 0
+
+input: e, cursor: 1
+
+input: e, cursor: 1
+
+input: ec, cursor: 2
+
+input: ec, cursor: 2
+
+input: ech, cursor: 3
+
+input: ech, cursor: 3
+
+input: echo, cursor: 4
+
+input: echo, cursor: 4
+
+input: echo1, cursor: 5
+echo1: command not found
+
+input: , cursor: 0
+
+input: l, cursor: 1
+
+input: l, cursor: 1
+
+input: ls, cursor: 2
+
+input: , cursor: 0
+
+input: h, cursor: 1
+
+input: h, cursor: 1
+
+input: hi, cursor: 2
+
+input: hi, cursor: 2
+
+input: his, cursor: 3
+
+input: his, cursor: 3
+
+input: hist, cursor: 4
+
+input: hist, cursor: 4
+
+input: histo, cursor: 5
+
+input: histo, cursor: 5
+
+input: histor, cursor: 6
+
+input: histor, cursor: 6
+
+input: history, cursor: 7
+
+input: , cursor: 0
+
+input: h, cursor: 1
+
+input: h, cursor: 1
+
+input: hi, cursor: 2
+
+input: hi, cursor: 2
+
+input: his, cursor: 3
+
+input: his, cursor: 3
+
+input: hist, cursor: 4
+
+input: hist, cursor: 4
+
+input: histo, cursor: 5
+
+input: histo, cursor: 5
+
+input: histor, cursor: 6
+
+input: histor, cursor: 6
+
+input: history, cursor: 7
+
+input: history, cursor: 7
+
+input: history , cursor: 8
+
+input: history , cursor: 8
+
+input: history 2, cursor: 9
+
+input: history 2, cursor: 9
+
+input: history 20, cursor: 10
+
+input: history , cursor: 8
+
+input: history 5, cursor: 9
+
+input: history , cursor: 8
+
+input: history 1, cursor: 9
+
+input: history 1, cursor: 9
+
+input: history 10, cursor: 10
+
+input: history 1, cursor: 9
+
+input: history 15, cursor: 10

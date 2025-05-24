@@ -153,7 +153,10 @@ impl InternalCommand {
                 }
             }
             InternalCommandName::History => {
-                let _ = write!(self.output, "{history}");
+                let _ = history.write(
+                    &mut self.output,
+                    self.args.get(0).and_then(|arg| arg.parse().ok()),
+                );
             }
             InternalCommandName::Empty => {}
         }

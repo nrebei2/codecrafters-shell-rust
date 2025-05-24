@@ -69,6 +69,7 @@ impl<'a> InputDisplay<'a> {
             Selected::Input => &mut self.input,
             Selected::History { input, .. } => {
                 self.input = input.to_owned();
+                self.selected = Selected::Input;
                 &mut self.input
             }
         }
@@ -143,9 +144,10 @@ impl<'a> InputState<'a> {
         self.rang_bell = false;
 
         let input = self.input_display.modify_input();
+
         input.insert(self.cursor_pos, c);
         self.cursor_pos += 1;
-
+        
         if self.cursor_pos == input.len() {
             self.print(c)
         } else {

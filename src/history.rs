@@ -1,4 +1,4 @@
-use std::{cmp::max, collections::VecDeque, fmt::Display, ops::Deref};
+use std::{cmp::max, collections::VecDeque, fmt::Display, io::Write, ops::Deref};
 
 #[derive(Default)]
 pub struct History {
@@ -9,6 +9,22 @@ impl History {
     pub fn push(&mut self, input: String) {
         self.inputs.push_back(input);
     }
+
+    pub fn write<W: Write>(
+        &self,
+        writer: &mut W,
+        limit: Option<usize>,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        for (idx, input) in self
+            .inputs
+            .iter()
+            .enumerate()
+            .skip(self.inputs.len().saturating_sub(limit.unwrap_or(self.inputs.len())))
+        {
+            writeln!(writer, "\t{}  {}", idx + 1, input)?;
+        }
+        Ok(())
+    }
 }
 
 impl Deref for History {
@@ -16,14 +32,5 @@ impl Deref for History {
 
     fn deref(&self) -> &Self::Target {
         &self.inputs
-    }
-}
-
-impl Display for History {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        for (idx, input) in self.inputs.iter().enumerate() {
-            writeln!(f, "\t{}  {}", idx + 1, input)?;
-        }
-        Ok(())
     }
 }
