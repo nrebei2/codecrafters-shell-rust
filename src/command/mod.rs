@@ -12,6 +12,8 @@ use std::process::Command as ProcessCommand;
 mod parser;
 use parser::{Command as PCommand, CommandParser, Fd, RedirectTo, RedirectType};
 
+use crate::history::History;
+
 enum InternalCommandName {
     Echo,
     Type,
@@ -19,7 +21,7 @@ enum InternalCommandName {
     Empty,
     Exit,
     Pwd,
-    History
+    History,
 }
 
 impl FromStr for InternalCommandName {
@@ -98,7 +100,7 @@ impl InternalCommand {
         })
     }
 
-    fn run(mut self) {
+    fn run(mut self, history: &History) {
         match self.name {
             InternalCommandName::Exit => exit(0),
             InternalCommandName::Echo => {
@@ -151,7 +153,7 @@ impl InternalCommand {
                 }
             }
             InternalCommandName::History => {
-                
+                let _ = write!(self.output, "{history}");
             }
             InternalCommandName::Empty => {}
         }
@@ -209,7 +211,7 @@ enum Command {
     External(ExternalCommand),
 }
 
-pub fn run_from_input(input: &str) {
+pub fn run_from_input(input: &str, history: &History) {
     let parsed_commands = CommandParser::new(input).parse();
     if parsed_commands.is_empty() {
         return;
@@ -259,7 +261,7 @@ pub fn run_from_input(input: &str) {
         for comm in compiled_commands {
             s.spawn(|| match comm {
                 Command::External(e) => e.run(),
-                Command::Internal(i) => i.run(),
+                Command::Internal(i) => i.run(history),
             });
         }
     });
