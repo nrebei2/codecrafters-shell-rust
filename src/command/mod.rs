@@ -11,7 +11,6 @@ use std::process::Command as ProcessCommand;
 
 mod parser;
 use parser::{Command as PCommand, CommandParser, Fd, RedirectTo, RedirectType};
-use pipe::pipe;
 
 enum InternalCommandName {
     Echo,
@@ -20,6 +19,7 @@ enum InternalCommandName {
     Empty,
     Exit,
     Pwd,
+    History
 }
 
 impl FromStr for InternalCommandName {
@@ -33,6 +33,7 @@ impl FromStr for InternalCommandName {
             "cd" => Self::Cd,
             "exit" => Self::Exit,
             "pwd" => Self::Pwd,
+            "history" => Self::History,
             _ => return Err("nuh uh"),
         })
     }
@@ -105,7 +106,7 @@ impl InternalCommand {
             }
             InternalCommandName::Type => {
                 let _ = match self.args.get(0).map(String::as_str) {
-                    Some(comm @ ("echo" | "cd" | "type" | "exit" | "pwd")) => {
+                    Some(comm @ ("echo" | "cd" | "type" | "exit" | "pwd" | "history")) => {
                         writeln!(self.output, "{comm} is a shell builtin")
                     }
                     Some(comm) => match find_in_path(&comm) {
@@ -148,6 +149,9 @@ impl InternalCommand {
                 if env::set_current_dir(&path_str).is_err() {
                     let _ = writeln!(self.error, "cd: {}: No such file or directory", path_str);
                 }
+            }
+            InternalCommandName::History => {
+                
             }
             InternalCommandName::Empty => {}
         }

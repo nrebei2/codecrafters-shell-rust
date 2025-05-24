@@ -5,7 +5,7 @@ use std::{
 
 use termion::{
     clear, cursor,
-    raw::{IntoRawMode, RawTerminal}, style,
+    raw::{IntoRawMode, RawTerminal},
 };
 
 use crate::command_trie::{CommandsTrie, CompletionResponse};
