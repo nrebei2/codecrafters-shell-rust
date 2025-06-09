@@ -173,6 +173,24 @@ impl InternalCommand {
 
                         Ok(())
                     }
+                    Some("-w") => {
+                        let Some(path) = self.args.get(1) else {
+                            let _ =
+                                writeln!(self.error, "history -w: Expected <path_to_history_file>");
+                            return;
+                        };
+
+                        if let Err(e) = history.write_to_file(path.into()) {
+                            let _ = writeln!(
+                                self.error,
+                                "history -w {path}: Could not create/write file - {}",
+                                e
+                            );
+                            return;
+                        };
+
+                        Ok(())
+                    }
                     Some(arg) => {
                         let Ok(limit) = arg.parse::<usize>() else {
                             let _ = writeln!(self.error, "history {}: Invalid option", arg);

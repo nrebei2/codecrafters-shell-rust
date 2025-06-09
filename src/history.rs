@@ -1,6 +1,6 @@
 use std::{
     fs,
-    io::{BufRead, BufReader, Write},
+    io::{BufRead, BufReader, BufWriter, Write},
     ops::{AddAssign, Deref},
     path::PathBuf,
 };
@@ -38,6 +38,22 @@ impl History {
         Some(Self {
             inputs: inputs.ok()?,
         })
+    }
+
+    pub fn write_to_file(&self, file_path: PathBuf) -> std::io::Result<()> {
+        let mut file = BufWriter::new(
+            fs::OpenOptions::new()
+                .create(true)
+                .truncate(true)
+                .write(true)
+                .open(file_path)?,
+        );
+
+        for input in &self.inputs {
+            writeln!(file, "{input}")?;
+        }
+
+        Ok(())
     }
 }
 
