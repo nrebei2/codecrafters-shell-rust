@@ -5,6 +5,7 @@ use std::{
     path::PathBuf,
     process::{exit, Stdio},
     str::FromStr,
+    sync::Mutex,
 };
 
 use std::process::Command as ProcessCommand;
@@ -100,18 +101,18 @@ impl InternalCommand {
         })
     }
 
-    fn run(mut self, history: &History) {
+    fn run(mut self, history: &Mutex<History>) {
         match self.name {
             InternalCommandName::Exit => exit(0),
             InternalCommandName::Echo => {
                 let _ = writeln!(self.output, "{}", self.args.join(" "));
             }
             InternalCommandName::Type => {
-                let _ = match self.args.get(0).map(String::as_str) {
+                let _ = match self.args.first().map(String::as_str) {
                     Some(comm @ ("echo" | "cd" | "type" | "exit" | "pwd" | "history")) => {
                         writeln!(self.output, "{comm} is a shell builtin")
                     }
-                    Some(comm) => match find_in_path(&comm) {
+                    Some(comm) => match find_in_path(comm) {
                         Some(full_path) => {
                             writeln!(self.output, "{comm} is {}", full_path.display())
                         }
@@ -153,10 +154,34 @@ impl InternalCommand {
                 }
             }
             InternalCommandName::History => {
-                let _ = history.write(
-                    &mut self.output,
-                    self.args.get(0).and_then(|arg| arg.parse().ok()),
-                );
+                let mut history = history.lock().unwrap();
+                let _ = match self.args.first().map(String::as_str) {
+                    None => history.write(&mut self.output, None),
+                    Some("-r") => {
+                        let Some(path) = self.args.get(1) else {
+                            let _ =
+                                writeln!(self.error, "history -r: Expected <path_to_history_file>");
+                            return;
+                        };
+
+                        let Some(file_history) = History::from_file(path.into()) else {
+                            let _ = writeln!(self.error, "history -r {path}: Could not read file");
+                            return;
+                        };
+
+                        *history += file_history;
+
+                        Ok(())
+                    }
+                    Some(arg) => {
+                        let Ok(limit) = arg.parse::<usize>() else {
+                            let _ = writeln!(self.error, "history {}: Invalid option", arg);
+                            return;
+                        };
+
+                        history.write(&mut self.output, Some(limit))
+                    }
+                };
             }
             InternalCommandName::Empty => {}
         }
@@ -173,20 +198,19 @@ impl ExternalCommand {
         process.args(comm.args);
 
         if let Some(r) = comm.redirect {
-            if let RedirectTo::File(file_name) = r.to {
-                let file = new_file(r.r_type, file_name);
-                match r.from {
-                    Fd::Stdout => {
-                        process.stdout(Stdio::from(file));
-                    }
-                    Fd::Stderr => {
-                        process.stderr(Stdio::from(file));
-                    }
-                    _ => unimplemented!("Internal commands do not work with arbitrary fds"),
-                }
-            } else {
+            let RedirectTo::File(file_name) = r.to else {
                 // pre_exec could be used here
                 unimplemented!("Only redirections to files are supported atm")
+            };
+            let file = new_file(r.r_type, file_name);
+            match r.from {
+                Fd::Stdout => {
+                    process.stdout(Stdio::from(file));
+                }
+                Fd::Stderr => {
+                    process.stderr(Stdio::from(file));
+                }
+                _ => unimplemented!("Internal commands do not work with arbitrary fds"),
             }
         }
 
@@ -214,8 +238,13 @@ enum Command {
     External(ExternalCommand),
 }
 
-pub fn run_from_input(input: &str, history: &History) {
+pub fn run_from_history(history: &Mutex<History>) {
+    // input retrieved from end of history
+    let binding = history.lock().unwrap();
+    let input = binding.last().unwrap();
     let parsed_commands = CommandParser::new(input).parse();
+    drop(binding);
+
     if parsed_commands.is_empty() {
         return;
     }

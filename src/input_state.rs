@@ -1,5 +1,4 @@
 use std::{
-    cmp::max,
     fmt::Display,
     io::{self, Stdout, Write},
 };
@@ -28,7 +27,7 @@ impl<'a> InputDisplay<'a> {
     fn move_up(&mut self, history: &'a History) {
         self.selected = match self.selected {
             Selected::Input => {
-                if let Some(input) = history.back() {
+                if let Some(input) = history.last() {
                     Selected::History {
                         index: history.len() - 1,
                         input,

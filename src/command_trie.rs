@@ -52,7 +52,6 @@ impl CommandsTrie {
                         let mut commands: Vec<_> = completions.collect();
                         commands.sort();
                         return CompletionResponse::Multiple(commands);
-
                     }
                 }
             }
@@ -66,13 +65,16 @@ pub fn build_trie() -> CommandsTrie {
     trie.insert("echo");
     trie.insert("exit");
     for path in env::split_paths(&env::var_os("PATH").unwrap()) {
-        for entry in path.read_dir().into_iter().flat_map(|r| r.into_iter()) {
-            if let Ok(entry) = entry {
-                if entry.path().is_file()
-                    && fs::metadata(entry.path()).unwrap().permissions().mode() & 0o111 != 0
-                {
-                    trie.insert(&entry.file_name().into_string().unwrap());
-                }
+        for entry in path
+            .read_dir()
+            .into_iter()
+            .flat_map(|r| r.into_iter())
+            .flatten()
+        {
+            if entry.path().is_file()
+                && fs::metadata(entry.path()).unwrap().permissions().mode() & 0o111 != 0
+            {
+                trie.insert(&entry.file_name().into_string().unwrap());
             }
         }
     }

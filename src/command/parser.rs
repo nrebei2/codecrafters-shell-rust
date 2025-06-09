@@ -69,7 +69,7 @@ impl<'a> CommandParser<'a> {
     }
 
     fn parse_single_quotes(&mut self) {
-        while let Some(c) = self.chars.next() {
+        for c in self.chars.by_ref() {
             if c == '\'' {
                 break;
             }
@@ -96,10 +96,8 @@ impl<'a> CommandParser<'a> {
     }
 
     fn parse_string(&mut self) {
-        if self.chars.peek() == None {
-            if self.buf.is_empty() {
-                panic!("Expected string, found end of input")
-            }
+        if self.chars.peek().is_none() && self.buf.is_empty() {
+            panic!("Expected string, found end of input")
         }
 
         while let Some(c) = self.chars.next() {
@@ -171,10 +169,12 @@ impl<'a> CommandParser<'a> {
             return None; // empty string
         }
 
-        let mut comm = Command::default();
-        comm.name = {
-            self.parse_string();
-            self.buf.drain(..).collect()
+        let mut comm = Command {
+            name: {
+                self.parse_string();
+                self.buf.drain(..).collect()
+            },
+            ..Default::default()
         };
 
         loop {
