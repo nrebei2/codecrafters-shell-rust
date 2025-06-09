@@ -1,8 +1,10 @@
 use command_trie::build_trie;
 use history::History;
 use input_state::InputState;
-use std::{io, process::exit, sync::Mutex};
+use std::{env, io, sync::Mutex};
 use termion::{event::Key, input::TermRead};
+
+use crate::command::RunResult;
 
 mod command;
 mod command_trie;
@@ -11,9 +13,17 @@ mod input_state;
 
 fn main() -> io::Result<()> {
     let trie = build_trie();
-    let mut history = Mutex::new(History::default());
 
-    loop {
+    let hist_file_env = env::var("HISTFILE");
+    let mut history = Mutex::new(
+        hist_file_env
+            .as_ref()
+            .ok()
+            .and_then(|path| History::from_file(path.into()))
+            .unwrap_or_default(),
+    );
+
+    'a: loop {
         let mut input = InputState::new()?;
         input.begin()?;
 
@@ -32,12 +42,20 @@ fn main() -> io::Result<()> {
                 Key::Right => input.handle_right(),
                 Key::Up => input.handle_up(history_handle),
                 Key::Down => input.handle_down(history_handle),
-                Key::Ctrl('d') => exit(0),
+                Key::Ctrl('d') => break 'a,
                 _ => Ok(()),
             }?;
         }
 
         history_handle.push(input.submit());
-        command::run_from_history(&history);
+        if command::run_from_history(&history) == RunResult::Exit {
+            break 'a;
+        }
     }
+
+    if let Ok(path) = hist_file_env {
+        let _ = history.get_mut().unwrap().write_to_file(path.into(), false);
+    };
+
+    Ok(())
 }

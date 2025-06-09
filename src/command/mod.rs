@@ -3,7 +3,7 @@ use std::{
     fs::File,
     io::{stderr, stdin, stdout, Read, Write},
     path::PathBuf,
-    process::{exit, Stdio},
+    process::Stdio,
     str::FromStr,
     sync::Mutex,
 };
@@ -15,6 +15,7 @@ use parser::{Command as PCommand, CommandParser, Fd, RedirectTo, RedirectType};
 
 use crate::history::History;
 
+#[derive(PartialEq)]
 enum InternalCommandName {
     Echo,
     Type,
@@ -103,7 +104,6 @@ impl InternalCommand {
 
     fn run(mut self, history: &Mutex<History>) {
         match self.name {
-            InternalCommandName::Exit => exit(0),
             InternalCommandName::Echo => {
                 let _ = writeln!(self.output, "{}", self.args.join(" "));
             }
@@ -175,8 +175,10 @@ impl InternalCommand {
                     }
                     Some(arg @ ("-w" | "-a")) => {
                         let Some(path) = self.args.get(1) else {
-                            let _ =
-                                writeln!(self.error, "history {arg}: Expected <path_to_history_file>");
+                            let _ = writeln!(
+                                self.error,
+                                "history {arg}: Expected <path_to_history_file>"
+                            );
                             return;
                         };
 
@@ -201,6 +203,7 @@ impl InternalCommand {
                     }
                 };
             }
+            InternalCommandName::Exit => {}
             InternalCommandName::Empty => {}
         }
     }
@@ -256,7 +259,13 @@ enum Command {
     External(ExternalCommand),
 }
 
-pub fn run_from_history(history: &Mutex<History>) {
+#[derive(PartialEq)]
+pub enum RunResult {
+    Exit,
+    Continue,
+}
+
+pub fn run_from_history(history: &Mutex<History>) -> RunResult {
     // input retrieved from end of history
     let binding = history.lock().unwrap();
     let input = binding.last().unwrap();
@@ -264,13 +273,20 @@ pub fn run_from_history(history: &Mutex<History>) {
     drop(binding);
 
     if parsed_commands.is_empty() {
-        return;
+        return RunResult::Continue;
     }
+
+    let mut res = RunResult::Continue;
 
     let mut compiled_commands: Vec<_> = parsed_commands
         .into_iter()
         .map(|p_c| match InternalCommand::from_parsed_command(p_c) {
-            Ok(internal_comm) => Command::Internal(internal_comm),
+            Ok(internal_comm) => {
+                if internal_comm.name == InternalCommandName::Exit {
+                    res = RunResult::Exit;
+                };
+                Command::Internal(internal_comm)
+            }
             Err(p_comm) => Command::External(ExternalCommand::from_parsed_command(p_comm)),
         })
         .collect();
@@ -315,4 +331,6 @@ pub fn run_from_history(history: &Mutex<History>) {
             });
         }
     });
+
+    res
 }
