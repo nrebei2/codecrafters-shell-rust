@@ -8,6 +8,7 @@ use std::{
 #[derive(Default)]
 pub struct History {
     inputs: Vec<String>,
+    last_append_index: usize,
 }
 
 impl History {
@@ -37,20 +38,29 @@ impl History {
 
         Some(Self {
             inputs: inputs.ok()?,
+            last_append_index: 0,
         })
     }
 
-    pub fn write_to_file(&self, file_path: PathBuf) -> std::io::Result<()> {
+    pub fn write_to_file(&mut self, file_path: PathBuf, append: bool) -> std::io::Result<()> {
         let mut file = BufWriter::new(
             fs::OpenOptions::new()
                 .create(true)
-                .truncate(true)
+                .truncate(!append)
                 .write(true)
+                .append(append)
                 .open(file_path)?,
         );
 
-        for input in &self.inputs {
-            writeln!(file, "{input}")?;
+        if append {
+            for input in &self.inputs[self.last_append_index..] {
+                writeln!(file, "{input}")?;
+            }
+            self.last_append_index = self.inputs.len();
+        } else {
+            for input in &self.inputs {
+                writeln!(file, "{input}")?;
+            }
         }
 
         Ok(())

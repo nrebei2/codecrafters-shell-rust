@@ -173,17 +173,17 @@ impl InternalCommand {
 
                         Ok(())
                     }
-                    Some("-w") => {
+                    Some(arg @ ("-w" | "-a")) => {
                         let Some(path) = self.args.get(1) else {
                             let _ =
-                                writeln!(self.error, "history -w: Expected <path_to_history_file>");
+                                writeln!(self.error, "history {arg}: Expected <path_to_history_file>");
                             return;
                         };
 
-                        if let Err(e) = history.write_to_file(path.into()) {
+                        if let Err(e) = history.write_to_file(path.into(), arg == "-a") {
                             let _ = writeln!(
                                 self.error,
-                                "history -w {path}: Could not create/write file - {}",
+                                "history {arg} {path}: Could not create/write file - {}",
                                 e
                             );
                             return;

@@ -1,3 +1,6 @@
 echo ho
 echo heheh
 history -w history.txt
+echo bro momne
+skbidi
+history -a history.txt
