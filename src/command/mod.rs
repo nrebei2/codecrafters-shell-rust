@@ -11,6 +11,7 @@ use std::{
 use std::process::Command as ProcessCommand;
 
 mod parser;
+use is_executable::is_executable;
 use parser::{Command as PCommand, CommandParser, Fd, RedirectTo, RedirectType};
 
 use crate::history::History;
@@ -63,7 +64,7 @@ fn new_file(r_type: RedirectType, file_name: String) -> File {
 fn find_in_path(comm: &str) -> Option<PathBuf> {
     for path in env::split_paths(&env::var_os("PATH").unwrap()) {
         let joined = path.join(comm);
-        if joined.is_file() {
+        if joined.is_file() && is_executable(&joined) {
             return Some(joined);
         }
     }
