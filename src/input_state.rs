@@ -1,5 +1,6 @@
 use std::{
     fmt::Display,
+    fs,
     io::{self, Stdout, Write},
 };
 
@@ -112,6 +113,43 @@ impl<'a> InputState<'a> {
     }
 
     pub fn handle_tab(&mut self, command_trie: &CommandsTrie) -> io::Result<()> {
+        if let Some(last_arg) = self
+            .input_display
+            .cur_input()
+            .split_whitespace()
+            .next_back()
+        {
+            let (directory, prefix) = last_arg.rsplit_once('/').unwrap_or((".", last_arg));
+            for entry in fs::read_dir(directory)?.filter_map(|e| e.ok()) {
+                let Ok(name) = entry.file_name().into_string() else {
+                    continue;
+                };
+
+                let Ok(is_file) = entry.metadata().map(|m| m.is_file()) else {
+                    continue;
+                };
+
+                if let Some(rest) = name.strip_prefix(prefix) {
+                    let append_token = if is_file { ' ' } else { '/' };
+                    self.put_cursor_end()?;
+                    let input = self.input_display.modify_input();
+                    input.push_str(rest);
+                    input.push(append_token);
+                    self.cursor_pos = input.len();
+                    let _ = self.print(rest);
+                    let _ = self.print(append_token);
+                    return Ok(());
+                }
+            }
+
+            // bell
+            self.print('\x07')
+        } else {
+            self.handle_tab_command(command_trie)
+        }
+    }
+
+    fn handle_tab_command(&mut self, command_trie: &CommandsTrie) -> io::Result<()> {
         match command_trie.autocomplete(self.input_display.cur_input()) {
             CompletionResponse::Multiple(matches) => {
                 if self.rang_bell {
@@ -146,7 +184,7 @@ impl<'a> InputState<'a> {
 
         input.insert(self.cursor_pos, c);
         self.cursor_pos += 1;
-        
+
         if self.cursor_pos == input.len() {
             self.print(c)
         } else {
