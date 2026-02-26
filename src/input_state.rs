@@ -130,30 +130,29 @@ impl<'a> InputState<'a> {
                 };
 
                 if let Some(rest) = name.strip_prefix(prefix) {
-                    let mut to_insert = last_arg.to_owned() + rest;
-                    if !is_file {
-                        to_insert.push('/');
+                    if is_file {
+                        path_completer.insert(&(last_arg.to_owned() + rest));
+                    } else {
+                        path_completer.insert_val(&(last_arg.to_owned() + rest), "/");
                     }
-
-                    path_completer.insert(&to_insert);
                 }
             }
 
-            self.handle_tab_autocomplete(&path_completer, last_arg.to_owned())
+            self.handle_tab_autocomplete(&path_completer)
         } else {
-            self.handle_tab_autocomplete(
-                command_completer,
-                self.input_display.cur_input().to_owned(),
-            )
+            self.handle_tab_autocomplete(command_completer)
         }
     }
 
-    fn handle_tab_autocomplete(
-        &mut self,
-        autocompleter: &Autocompleter,
-        prefix: String,
-    ) -> io::Result<()> {
-        match autocompleter.autocomplete(&prefix) {
+    fn handle_tab_autocomplete(&mut self, autocompleter: &Autocompleter) -> io::Result<()> {
+        let prefix = self
+            .input_display
+            .cur_input()
+            .split(|c: char| c.is_whitespace())
+            .next_back()
+            .unwrap_or_default();
+
+        match autocompleter.autocomplete(prefix) {
             CompletionResponse::Multiple(matches) => {
                 if self.rang_bell {
                     self.rang_bell = false;
@@ -166,10 +165,8 @@ impl<'a> InputState<'a> {
                     self.print('\x07')
                 }
             }
-            CompletionResponse::Single(mut rest, is_leaf) => {
-                if is_leaf && !rest.ends_with('/') {
-                    rest.push(' ');
-                }
+            CompletionResponse::Single(mut rest, tag) => {
+                rest.push_str(tag.unwrap_or(" "));
                 self.put_cursor_end()?;
                 let input = self.input_display.modify_input();
                 input.push_str(&rest);

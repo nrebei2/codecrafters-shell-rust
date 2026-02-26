@@ -4,12 +4,12 @@ use sequence_trie::SequenceTrie;
 
 pub enum CompletionResponse {
     None,
-    Single(String, bool),  // does not include prefix
+    Single(String, Option<&'static str>),  // does not include prefix, includes postpend
     Multiple(Vec<String>), // holds all matches including prefix
 }
 
 pub struct Autocompleter {
-    trie: SequenceTrie<u8, ()>,
+    trie: SequenceTrie<u8, Option<&'static str>>,
 }
 
 impl Autocompleter {
@@ -19,18 +19,22 @@ impl Autocompleter {
         }
     }
 
+    pub fn insert_val(&mut self, name: &str, val: &'static str) {
+        self.trie.insert(name.as_bytes(), Some(val));
+    }
+
     pub fn insert(&mut self, name: &str) {
-        self.trie.insert(name.as_bytes(), ());
+        self.trie.insert(name.as_bytes(), None);
     }
 
     pub fn autocomplete(&self, current: &str) -> CompletionResponse {
         let mut string_builder = vec![];
         if let Some(mut cur_node) = self.trie.get_node(current.as_bytes()) {
             loop {
-                if cur_node.value().is_some() {
+                if let Some(val) = cur_node.value() {
                     return CompletionResponse::Single(
                         String::from_utf8(string_builder).unwrap(),
-                        cur_node.is_leaf(),
+                        if cur_node.is_leaf() { *val } else { Some("") },
                     );
                 }
 
@@ -43,11 +47,11 @@ impl Autocompleter {
                     }
                     _ => {
                         // branches off, return all sub-keys
-                        let completions = cur_node.keys().map(|postfix| {
+                        let completions = cur_node.iter().map(|(postfix, val)| {
                             let mut new_string = current.as_bytes().to_vec();
                             new_string.extend(&string_builder);
                             new_string.extend(postfix);
-                            String::from_utf8(new_string).unwrap()
+                            String::from_utf8(new_string).unwrap() + val.unwrap_or_default()
                         });
                         let mut commands: Vec<_> = completions.collect();
                         commands.sort();
