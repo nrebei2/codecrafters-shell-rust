@@ -10,7 +10,7 @@ use termion::{
 };
 
 use crate::{
-    command_trie::{CommandsTrie, CompletionResponse},
+    autocompleter::{Autocompleter, CompletionResponse},
     history::History,
 };
 
@@ -112,14 +112,14 @@ impl<'a> InputState<'a> {
         self.print("\r\n")
     }
 
-    pub fn handle_tab(&mut self, command_trie: &CommandsTrie) -> io::Result<()> {
-        if let Some(last_arg) = self
+    pub fn handle_tab(&mut self, command_completer: &Autocompleter) -> io::Result<()> {
+        if let Some((_, last_arg)) = self
             .input_display
             .cur_input()
-            .split_whitespace()
-            .next_back()
+            .rsplit_once(|c: char| c.is_whitespace())
         {
             let (directory, prefix) = last_arg.rsplit_once('/').unwrap_or((".", last_arg));
+            let mut path_completer = Autocompleter::new();
             for entry in fs::read_dir(directory)?.filter_map(|e| e.ok()) {
                 let Ok(name) = entry.file_name().into_string() else {
                     continue;
@@ -130,27 +130,30 @@ impl<'a> InputState<'a> {
                 };
 
                 if let Some(rest) = name.strip_prefix(prefix) {
-                    let append_token = if is_file { ' ' } else { '/' };
-                    self.put_cursor_end()?;
-                    let input = self.input_display.modify_input();
-                    input.push_str(rest);
-                    input.push(append_token);
-                    self.cursor_pos = input.len();
-                    let _ = self.print(rest);
-                    let _ = self.print(append_token);
-                    return Ok(());
+                    let mut to_insert = last_arg.to_owned() + rest;
+                    if !is_file {
+                        to_insert.push('/');
+                    }
+
+                    path_completer.insert(&to_insert);
                 }
             }
 
-            // bell
-            self.print('\x07')
+            self.handle_tab_autocomplete(&path_completer, last_arg.to_owned())
         } else {
-            self.handle_tab_command(command_trie)
+            self.handle_tab_autocomplete(
+                command_completer,
+                self.input_display.cur_input().to_owned(),
+            )
         }
     }
 
-    fn handle_tab_command(&mut self, command_trie: &CommandsTrie) -> io::Result<()> {
-        match command_trie.autocomplete(self.input_display.cur_input()) {
+    fn handle_tab_autocomplete(
+        &mut self,
+        autocompleter: &Autocompleter,
+        prefix: String,
+    ) -> io::Result<()> {
+        match autocompleter.autocomplete(&prefix) {
             CompletionResponse::Multiple(matches) => {
                 if self.rang_bell {
                     self.rang_bell = false;
@@ -164,7 +167,7 @@ impl<'a> InputState<'a> {
                 }
             }
             CompletionResponse::Single(mut rest, is_leaf) => {
-                if is_leaf {
+                if is_leaf && !rest.ends_with('/') {
                     rest.push(' ');
                 }
                 self.put_cursor_end()?;

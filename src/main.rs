@@ -1,4 +1,4 @@
-use command_trie::build_trie;
+use autocompleter::build_command_completer;
 use history::History;
 use input_state::InputState;
 use std::{env, io, sync::Mutex};
@@ -7,12 +7,12 @@ use termion::{event::Key, input::TermRead};
 use crate::command::RunResult;
 
 mod command;
-mod command_trie;
+mod autocompleter;
 mod history;
 mod input_state;
 
 fn main() -> io::Result<()> {
-    let trie = build_trie();
+    let command_completer = build_command_completer();
 
     let hist_file_env = env::var("HISTFILE");
     let mut history = Mutex::new(
@@ -35,7 +35,7 @@ fn main() -> io::Result<()> {
                     input.handle_newline()?;
                     break;
                 }
-                Key::Char('\t') => input.handle_tab(&trie),
+                Key::Char('\t') => input.handle_tab(&command_completer),
                 Key::Char(c) => input.handle_char(c),
                 Key::Backspace => input.handle_backspace(),
                 Key::Left => input.handle_left(),

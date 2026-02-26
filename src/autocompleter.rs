@@ -2,25 +2,25 @@ use std::{env, fs, os::unix::fs::PermissionsExt};
 
 use sequence_trie::SequenceTrie;
 
-pub struct CommandsTrie {
-    trie: SequenceTrie<u8, ()>,
-}
-
 pub enum CompletionResponse {
     None,
     Single(String, bool),  // does not include prefix
     Multiple(Vec<String>), // holds all matches including prefix
 }
 
-impl CommandsTrie {
+pub struct Autocompleter {
+    trie: SequenceTrie<u8, ()>,
+}
+
+impl Autocompleter {
     pub fn new() -> Self {
         Self {
             trie: SequenceTrie::new(),
         }
     }
 
-    pub fn insert(&mut self, command_name: &str) {
-        self.trie.insert(command_name.as_bytes(), ());
+    pub fn insert(&mut self, name: &str) {
+        self.trie.insert(name.as_bytes(), ());
     }
 
     pub fn autocomplete(&self, current: &str) -> CompletionResponse {
@@ -60,10 +60,10 @@ impl CommandsTrie {
     }
 }
 
-pub fn build_trie() -> CommandsTrie {
-    let mut trie = CommandsTrie::new();
-    trie.insert("echo");
-    trie.insert("exit");
+pub fn build_command_completer() -> Autocompleter {
+    let mut completer = Autocompleter::new();
+    completer.insert("echo");
+    completer.insert("exit");
     for path in env::split_paths(&env::var_os("PATH").unwrap()) {
         for entry in path
             .read_dir()
@@ -74,9 +74,9 @@ pub fn build_trie() -> CommandsTrie {
             if entry.path().is_file()
                 && fs::metadata(entry.path()).unwrap().permissions().mode() & 0o111 != 0
             {
-                trie.insert(&entry.file_name().into_string().unwrap());
+                completer.insert(&entry.file_name().into_string().unwrap());
             }
         }
     }
-    trie
+    completer
 }
