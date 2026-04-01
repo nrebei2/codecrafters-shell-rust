@@ -51,7 +51,13 @@ pub struct Redirect {
 pub struct Command {
     pub name: String,
     pub args: Vec<String>,
-    pub redirect: Option<Redirect>,
+    pub redirect: Option<Redirect>
+}
+
+#[derive(Default, Debug)]
+pub struct Pipeline {
+    pub commands: Vec<Command>,
+    pub background: bool,
 }
 
 /// Follows single/double quote rules
@@ -182,7 +188,7 @@ impl<'a> CommandParser<'a> {
                 break;
             }
 
-            if self.chars.peek() == Some(&'|') {
+            if matches!(self.chars.peek(), Some(&'|' | &'&')) {
                 break;
             }
 
@@ -200,12 +206,13 @@ impl<'a> CommandParser<'a> {
     }
 
     /// returns a pipeline of commands, i.e. [c_1, c_2, ..., c_n] models 'c_1 | c_2 | ... | c_n'
-    pub fn parse(mut self) -> Vec<Command> {
+    pub fn parse(mut self) -> Pipeline {
         let command = match self.parse_command() {
-            None => return vec![],
+            None => return Default::default(),
             Some(c) => c,
         };
         let mut pipeline = vec![command];
+        let mut background = false;
 
         loop {
             match self.chars.next() {
@@ -215,11 +222,21 @@ impl<'a> CommandParser<'a> {
                             .expect("Expected a command to pipeline, but found end of input"),
                     );
                 }
+                Some('&') => {
+                    background = true;
+                    if !self.advance() {
+                        panic!("Expected '&' to be the final token")
+                    }
+                    break;
+                }
                 None => break,
                 _ => unreachable!(),
             }
         }
-        pipeline
+        Pipeline {
+            commands: pipeline,
+            background,
+        }
     }
 
     // true if exhausted iterator

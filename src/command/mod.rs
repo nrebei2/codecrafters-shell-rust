@@ -3,9 +3,10 @@ use std::{
     fs::File,
     io::{stderr, stdin, stdout, Read, Write},
     path::PathBuf,
-    process::Stdio,
+    process::{Child, Stdio},
     str::FromStr,
     sync::Mutex,
+    thread,
 };
 
 use std::process::Command as ProcessCommand;
@@ -14,7 +15,7 @@ mod parser;
 use is_executable::is_executable;
 use parser::{Command as PCommand, CommandParser, Fd, RedirectTo, RedirectType};
 
-use crate::history::History;
+use crate::{command::parser::Pipeline, history::History, jobs::JobTable};
 
 #[derive(PartialEq)]
 enum InternalCommandName {
@@ -25,6 +26,7 @@ enum InternalCommandName {
     Exit,
     Pwd,
     History,
+    Jobs,
 }
 
 impl FromStr for InternalCommandName {
@@ -39,6 +41,7 @@ impl FromStr for InternalCommandName {
             "exit" => Self::Exit,
             "pwd" => Self::Pwd,
             "history" => Self::History,
+            "jobs" => Self::Jobs,
             _ => return Err("nuh uh"),
         })
     }
@@ -103,14 +106,14 @@ impl InternalCommand {
         })
     }
 
-    fn run(mut self, history: &Mutex<History>) {
+    fn run(mut self, history: &Mutex<History>, jobs: &JobTable) {
         match self.name {
             InternalCommandName::Echo => {
                 let _ = writeln!(self.output, "{}", self.args.join(" "));
             }
             InternalCommandName::Type => {
                 let _ = match self.args.first().map(String::as_str) {
-                    Some(comm @ ("echo" | "cd" | "type" | "exit" | "pwd" | "history")) => {
+                    Some(comm @ ("echo" | "cd" | "type" | "exit" | "pwd" | "history" | "jobs")) => {
                         writeln!(self.output, "{comm} is a shell builtin")
                     }
                     Some(comm) => match find_in_path(comm) {
@@ -204,6 +207,11 @@ impl InternalCommand {
                     }
                 };
             }
+            InternalCommandName::Jobs => {
+                let mut jobs = jobs.lock().unwrap();
+                let _ = writeln!(self.output, "{jobs}");
+                jobs.clean_completed_jobs();
+            }
             InternalCommandName::Exit => {}
             InternalCommandName::Empty => {}
         }
@@ -239,19 +247,18 @@ impl ExternalCommand {
         ExternalCommand { process }
     }
 
-    fn run(mut self) {
+    fn run(mut self) -> Option<Child> {
         match self.process.spawn() {
-            Ok(mut child) => {
-                child.wait().expect("command wasn't running");
-            }
+            Ok(mut child) => Some(child),
             Err(_) => {
                 let _ = writeln!(
                     stderr(),
                     "{}: command not found",
                     self.process.get_program().to_str().unwrap()
                 );
+                None
             }
-        };
+        }
     }
 }
 
@@ -266,12 +273,15 @@ pub enum RunResult {
     Continue,
 }
 
-pub fn run_from_history(history: &Mutex<History>) -> RunResult {
+pub fn run_from_history(history: &Mutex<History>, jobs: &JobTable) -> RunResult {
     // input retrieved from end of history
-    let binding = history.lock().unwrap();
-    let input = binding.last().unwrap();
-    let parsed_commands = CommandParser::new(input).parse();
-    drop(binding);
+    let input = history.lock().unwrap().last().unwrap().clone();
+    let pipeline = CommandParser::new(&input).parse();
+
+    let Pipeline {
+        commands: parsed_commands,
+        background,
+    } = pipeline;
 
     if parsed_commands.is_empty() {
         return RunResult::Continue;
@@ -323,15 +333,42 @@ pub fn run_from_history(history: &Mutex<History>) -> RunResult {
         }
     }
 
-    // run commands on separate threads
-    std::thread::scope(|s| {
-        for comm in compiled_commands {
-            s.spawn(|| match comm {
-                Command::External(e) => e.run(),
-                Command::Internal(i) => i.run(history),
+    if background {
+        if compiled_commands.len() > 1 {
+            unimplemented!()
+        };
+
+        let Command::External(e) = compiled_commands.into_iter().next().unwrap() else {
+            unimplemented!();
+        };
+
+        let command_string = input;
+        let jobs = jobs.clone();
+        let number = jobs.lock().unwrap().insert_job(command_string);
+
+        if let Some(mut child) = e.run() {
+            println!("[{number}] {}", child.id());
+
+            std::thread::spawn(move || {
+                child.wait().expect("Expected child running");
+                jobs.lock().unwrap().set_job_complete(number);
             });
-        }
-    });
+        };
+    } else {
+        // run commands on separate threads
+        std::thread::scope(|s| {
+            for comm in compiled_commands {
+                s.spawn(|| match comm {
+                    Command::External(e) => {
+                        if let Some(mut child) = e.run() {
+                            child.wait().expect("Expected child running");
+                        }
+                    }
+                    Command::Internal(i) => i.run(history, jobs),
+                });
+            }
+        });
+    }
 
     res
 }

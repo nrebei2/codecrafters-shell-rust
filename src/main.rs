@@ -1,15 +1,19 @@
 use autocompleter::build_command_completer;
 use history::History;
 use input_state::InputState;
-use std::{env, io, sync::Mutex};
+use std::{
+    env, io,
+    sync::{Arc, Mutex},
+};
 use termion::{event::Key, input::TermRead};
 
-use crate::command::RunResult;
+use crate::{command::RunResult, jobs::Jobs};
 
-mod command;
 mod autocompleter;
+mod command;
 mod history;
 mod input_state;
+mod jobs;
 
 fn main() -> io::Result<()> {
     let command_completer = build_command_completer();
@@ -22,6 +26,7 @@ fn main() -> io::Result<()> {
             .and_then(|path| History::from_file(path.into()))
             .unwrap_or_default(),
     );
+    let jobs = Arc::new(Mutex::new(Jobs::default()));
 
     'a: loop {
         let mut input = InputState::new()?;
@@ -48,7 +53,7 @@ fn main() -> io::Result<()> {
         }
 
         history_handle.push(input.submit());
-        if command::run_from_history(&history) == RunResult::Exit {
+        if command::run_from_history(&history, &jobs) == RunResult::Exit {
             break 'a;
         }
     }
