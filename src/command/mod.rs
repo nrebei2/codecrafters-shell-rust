@@ -5,8 +5,7 @@ use std::{
     path::PathBuf,
     process::{Child, Stdio},
     str::FromStr,
-    sync::Mutex,
-    thread,
+    sync::Mutex
 };
 
 use std::process::Command as ProcessCommand;
@@ -209,8 +208,8 @@ impl InternalCommand {
             }
             InternalCommandName::Jobs => {
                 let mut jobs = jobs.lock().unwrap();
-                let _ = writeln!(self.output, "{jobs}");
-                jobs.clean_completed_jobs();
+                let _ = write!(self.output, "{jobs}");
+                jobs.clean_completed_jobs(false);
             }
             InternalCommandName::Exit => {}
             InternalCommandName::Empty => {}
@@ -249,7 +248,7 @@ impl ExternalCommand {
 
     fn run(mut self) -> Option<Child> {
         match self.process.spawn() {
-            Ok(mut child) => Some(child),
+            Ok(child) => Some(child),
             Err(_) => {
                 let _ = writeln!(
                     stderr(),

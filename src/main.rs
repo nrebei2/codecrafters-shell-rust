@@ -29,6 +29,8 @@ fn main() -> io::Result<()> {
     let jobs = Arc::new(Mutex::new(Jobs::default()));
 
     'a: loop {
+        jobs.lock().unwrap().clean_completed_jobs(true);
+
         let mut input = InputState::new()?;
         input.begin()?;
 
