@@ -5,7 +5,7 @@ use std::{
     path::PathBuf,
     process::{Child, Stdio},
     str::FromStr,
-    sync::Mutex
+    sync::Mutex,
 };
 
 use std::process::Command as ProcessCommand;
@@ -334,16 +334,20 @@ pub fn run_from_history(history: &Mutex<History>, jobs: &JobTable) -> RunResult 
 
     if background {
         if compiled_commands.len() > 1 {
-            unimplemented!()
+            unimplemented!("Cannot background multiple commands")
         };
 
         let Command::External(e) = compiled_commands.into_iter().next().unwrap() else {
-            unimplemented!();
+            unimplemented!("Cannot background internal commands");
         };
 
         let command_string = input;
         let jobs = jobs.clone();
-        let number = jobs.lock().unwrap().insert_job(command_string);
+        let number = jobs.lock().unwrap().insert_job(
+            command_string
+                .trim_matches(|c: char| c.is_ascii_whitespace() || c == '&')
+                .to_string(),
+        );
 
         if let Some(mut child) = e.run() {
             println!("[{number}] {}", child.id());
