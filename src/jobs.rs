@@ -5,7 +5,7 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-use indexmap::IndexMap;
+use indexmap::{map::MutableKeys, IndexMap};
 
 pub type JobTable = Arc<Mutex<Jobs>>;
 
@@ -13,7 +13,6 @@ pub type JobTable = Arc<Mutex<Jobs>>;
 pub struct JobInfo {
     pub complete: bool,
     pub command_string: String,
-    marker: &'static str,
 }
 
 #[derive(Debug, Default)]
@@ -30,22 +29,11 @@ impl Jobs {
             .map(|r| r.0)
             .unwrap_or(self.job_table.len() + 1);
 
-        let mut job_iter = self.job_table.values_mut().rev();
-
-        if let Some(job1) = job_iter.next() {
-            job1.marker = "-";
-        }
-
-        if let Some(job2) = job_iter.next() {
-            job2.marker = "";
-        }
-
         self.job_table.insert(
             next_job_number,
             JobInfo {
                 complete: false,
                 command_string,
-                marker: "+",
             },
         );
         next_job_number
@@ -56,13 +44,21 @@ impl Jobs {
     }
 
     pub fn clean_completed_jobs(&mut self, print: bool) {
+        let l = self.job_table.len();
+        let mut idx = 0;
         self.job_table.retain(|&job_number, info| {
-            if info.complete {
+            let ret = if info.complete {
                 if print {
                     let status = if info.complete { "Done" } else { "Running" };
                     println!(
                         "[{job_number}]{}  {status:<24}{}",
-                        info.marker,
+                        if idx == l - 1 {
+                            "+"
+                        } else if idx == l - 2 {
+                            "-"
+                        } else {
+                            ""
+                        },
                         if info.complete {
                             info.command_string
                                 .trim_end_matches(|c: char| c.is_ascii_whitespace() || c == '&')
@@ -75,19 +71,28 @@ impl Jobs {
                 false
             } else {
                 true
-            }
+            };
+            idx += 1;
+            ret
         });
     }
 }
 
 impl Display for Jobs {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        for (number, info) in self.job_table.iter() {
+        let l = self.job_table.len();
+        for (idx, (number, info)) in self.job_table.iter().enumerate() {
             let status = if info.complete { "Done" } else { "Running" };
             writeln!(
                 f,
                 "[{number}]{}  {status:<24}{}",
-                info.marker,
+                if idx == l - 1 {
+                    "+"
+                } else if idx == l - 2 {
+                    "-"
+                } else {
+                    ""
+                },
                 if info.complete {
                     info.command_string
                         .trim_end_matches(|c: char| c.is_ascii_whitespace() || c == '&')
