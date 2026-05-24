@@ -65,7 +65,7 @@ impl Jobs {
                         info.marker,
                         if info.complete {
                             info.command_string
-                                .trim_matches(|c: char| c.is_ascii_whitespace() || c == '&')
+                                .trim_end_matches(|c: char| c.is_ascii_whitespace() || c == '&')
                         } else {
                             &info.command_string
                         }
@@ -87,7 +87,13 @@ impl Display for Jobs {
             writeln!(
                 f,
                 "[{number}]{}  {status:<24}{}",
-                info.marker, info.command_string
+                info.marker,
+                if info.complete {
+                    info.command_string
+                        .trim_end_matches(|c: char| c.is_ascii_whitespace() || c == '&')
+                } else {
+                    &info.command_string
+                }
             )?;
         }
 
