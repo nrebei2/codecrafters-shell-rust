@@ -343,11 +343,7 @@ pub fn run_from_history(history: &Mutex<History>, jobs: &JobTable) -> RunResult 
 
         let command_string = input;
         let jobs = jobs.clone();
-        let number = jobs.lock().unwrap().insert_job(
-            command_string
-                .trim_matches(|c: char| c.is_ascii_whitespace() || c == '&')
-                .to_string(),
-        );
+        let number = jobs.lock().unwrap().insert_job(command_string);
 
         if let Some(mut child) = e.run() {
             println!("[{number}] {}", child.id());

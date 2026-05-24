@@ -62,7 +62,13 @@ impl Jobs {
                     let status = if info.complete { "Done" } else { "Running" };
                     println!(
                         "[{job_number}]{}  {status:<24}{}",
-                        info.marker, info.command_string
+                        info.marker,
+                        if info.complete {
+                            info.command_string
+                                .trim_matches(|c: char| c.is_ascii_whitespace() || c == '&')
+                        } else {
+                            &info.command_string
+                        }
                     );
                 }
                 self.free_job_numbers.push(Reverse(job_number));
